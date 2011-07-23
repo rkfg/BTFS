@@ -531,6 +531,7 @@ def main_torrent_descr(options, th):
 	try:
 		fs = BTFS(dash_s_do='setsingle')
 		fs.parse(errex=1)
+		fs.multithreaded = 1
 		fs.options = options
 		fs.main()
 		
