@@ -166,6 +166,7 @@ class torrent_file_bt2p(object):
 				result += data[piece_slice.start:end]
 				logger.debug("the data is written")
 				r.first += available_length
+				logger.debug("First=" + str(r.first) + " last=" + str(r.last))
 				request_done = r.first>r.last
 		return result
 	   except:
@@ -460,12 +461,16 @@ class BTFS(fuse.Fuse):
 			for r in dirents:
 				yield fuse.Direntry(r)
                 except:
-			logging.critical(str("".join(traceback.format_exception(*sys.exc_info()))))
+			self.logger.critical(str("".join(traceback.format_exception(*sys.exc_info()))))
 
 
 	def read_from_torrent(self, torrent_file, size, offset):
 		file_size = torrent_file.size
-		hr = "bytes=" + str(offset) + "-" + str(offset + size)
+		if offset > file_size:
+			return 0
+		if offset + size > file_size:
+			size = file_size - offset
+		hr = "bytes=" + str(offset) + "-" + str(offset + size - 1)
 		hr_parsed = httpheader.parse_range_header(hr)
 		hr_parsed.fix_to_size(file_size)
 		hr_parsed.coalesce()
@@ -487,7 +492,6 @@ class BTFS(fuse.Fuse):
 					
 			self.logger.debug("Read: " + unicode(torrent_file.size) + " " + unicode(offset) + "+" + unicode(size))
 			data = self.read_from_torrent(torrent_file, size, offset)
-			self.logger.debug("Data read: " + data)
 			return data
                 except:
 			self.logger.critical(str("".join(traceback.format_exception(*sys.exc_info()))))
