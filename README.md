@@ -12,6 +12,12 @@ There's no man page yet. I don't know whether it will be at all. For now you can
     --log — enable logging (provide a python logging configuration on /etc/btfs/logging.conf )
     --log-conf path/to/conf — use another logging configuration file
 
+And after all switches put the path to the mount point. For example:
+
+    ./btfs.py -f ~/mytorrent.torrent -s ~/downloads ~/btfs
+
+Then just go to ~/btfs and look for files. The topmost directory will have the torrent name (I believe some day I'll add multiple torrents support so it's a good reason to separate them in advance). You can unmount it just like any other FUSE filesystem using `fusermount -u ~/btfs`.
+
 # Bugs? #
 Yeah, there may be some. I didn't make this program from scratch. Instead, I got bittorrent2player ( http://www.beroal.in.ua/prg/bittorrent2player/ ) and modified it a lot. So if there were bugs they are now here. And some authentic ones were introduced by me. Enjoy!
 
