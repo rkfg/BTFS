@@ -66,7 +66,7 @@ class piece_server(object):
 		self.lock = threading.Lock()
 		self.array = []
 	def init(self):
-		self.torrent_handle.prioritize_pieces(self.torrent_info.num_pieces() * [0])
+		self.torrent_handle.prioritize_pieces(self.torrent_info.num_pieces() * [1])
 	def push(self, read_piece_alert):
 		self.lock.acquire()
 		try:
@@ -97,7 +97,7 @@ class piece_server(object):
 			#	self.torrent_handle.piece_priority(pa, 1)
 			#	deadline += 1000
 			for pa in range(piece, p1):
-				self.torrent_handle.piece_priority(pa, 1)
+				self.torrent_handle.piece_priority(pa, 7)
 			
 			logger.debug("downloading of the pieces ["+str(piece)+", "+str(p1)+"] is turned on")
 			self.array.append((event, channel, piece))
