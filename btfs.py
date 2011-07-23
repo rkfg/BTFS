@@ -517,9 +517,9 @@ def main_default(options):
 	if not ("piece-par" in options):
 		options["piece-par"] = 2**3 # configuration
 	if not ("hash-file" in options):
-		error_exit(225,  "\"--hash-file\" is mandatory")
+		error_exit(225,  "\"-f\" is mandatory")
 	elif not ("save-path" in options):
-		error_exit(226, "\"--save-path\" is mandatory")
+		error_exit(226, "\"-s\" is mandatory")
 
 def main_torrent_descr(options, th):
 	logger = logging.getLogger("root")
