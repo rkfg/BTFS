@@ -1,5 +1,6 @@
 #!/usr/bin/python
 __credits__ = """Copyright (c) 2011 Roman Beslik <rabeslik@gmail.com>
+Copyright (c) 2011 eurekafag <eurekafag@eureka7.ru>
 Licensed under GNU LGPL 2.1 or later.  See <http://www.fsf.org/>.
 
 This library is free software; you can redistribute it and/or
@@ -24,14 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 # done:
 
-import BaseHTTPServer
-from SocketServer import ThreadingMixIn
-import httpheader
-from cgi import escape as escape_html
-import urllib
-from mimetypes import guess_type as guess_mime_type
 import libtorrent
-
 import threading
 import os
 import os.path as fs
@@ -143,31 +137,31 @@ class alert_client(threading.Thread):
 		  logger.critical(str("".join(traceback.format_exception(*sys.exc_info()))))
 		  
 class torrent_file_bt2p(object):
-	def write(self, r):
+	def write(self, size, offset):
            try:
 		logger = logging.getLogger("root")
 		request_done = False
+		last = offset + size - 1
 		result = ""
 		while (not(request_done)):
-			piece_slice = self.map_file(r.first)
+			piece_slice = self.map_file(offset)
 			logger.info("the piece "+str(piece_slice.piece)+" is requested")
 			data = self.piece_server.pop(piece_slice.piece)
 			if data is None:
 				logger.warning("pop_piece() is None for the piece "+str(piece_slice.piece))
 				request_done = True
 			else:
-				available_length = range_spec_len(r)
+				available_length = last - offset + 1
 				end = piece_slice.start + available_length
-				if (end>=len(data)):
+				if (end >= len(data)):
 					end = len(data)
-					available_length = len(data)-piece_slice.start
+					available_length = len(data) - piece_slice.start
 				logger.debug("writing the data=(piece="+str(piece_slice.piece) \
 					+", interval=["+str(piece_slice.start)+", "+str(end)+"))")
 				result += data[piece_slice.start:end]
 				logger.debug("the data is written")
-				r.first += available_length
-				logger.debug("First=" + str(r.first) + " last=" + str(r.last))
-				request_done = r.first>r.last
+				offset += available_length
+				request_done = offset > last
 		return result
 	   except:
 		   logger = logging.getLogger("root")
@@ -178,12 +172,10 @@ class torrent_read_bt2p(object):
 		self.info_hash = self.torrent_info.info_hash()
 	def find_file(self, path):
 		for i, f0 in enumerate(self.torrent_info.files()):
-			logging.getLogger("root").debug("FindFile, probing: " + f0.path + " expected: " + path)
 			if f0.path == path:
 				f1 = torrent_file_bt2p()
 				f1.size = f0.size
 				f1.map_file = lambda offset: self.torrent_info.map_file(i, offset, 1)
-				f1.content_type = guess_mime_type(f0.path)
 				f1.piece_server = self.piece_server
 				return f1
 		return None
@@ -269,16 +261,15 @@ class MyStat(fuse.Stat):
 		self.st_ino = 0
 		self.st_dev = 0
 		self.st_nlink = 2
-		self.st_uid = 0
-		self.st_gid = 0
+		self.st_uid = os.geteuid()
+		self.st_gid = os.getegid()
 		self.st_size = 4096
-		self.st_atime = 0
-		self.st_mtime = 0
-		self.st_ctime = 0
+		self.st_atime = time.time()
+		self.st_mtime = time.time()
+		self.st_ctime = time.time()
 
 class BTFS(fuse.Fuse):
 	def __init__(self, *args, **kw):
-		print "Init"
 		self.logger = logging.getLogger("root")
 		fuse.Fuse.__init__(self, *args, **kw)
 
@@ -303,7 +294,7 @@ class BTFS(fuse.Fuse):
 		sp.peer_timeout /= 20 # configuration
 		sp.inactivity_timeout /= 20 # configuration
 		torrent_session.set_settings(sp)
-		torrent_session.listen_on(6881, 6891)
+		torrent_session.listen_on(self.options["port"], self.options["port"] + 100)
 	
 		e = libtorrent.bdecode(io.open(self.options["hash-file"], 'rb').read())
 		torrent_info = libtorrent.torrent_info(e)
@@ -388,8 +379,6 @@ class BTFS(fuse.Fuse):
 					curfile = curfile[pathpart]
 				partnum += 1
 
-		self.logger.debug("ParsedFiles: " + unicode(self.files))
-
 	def getbtdirlist(self, path):
 		dirlist = []
 		plainlist = []
@@ -470,13 +459,8 @@ class BTFS(fuse.Fuse):
 			return 0
 		if offset + size > file_size:
 			size = file_size - offset
-		hr = "bytes=" + str(offset) + "-" + str(offset + size - 1)
-		hr_parsed = httpheader.parse_range_header(hr)
-		hr_parsed.fix_to_size(file_size)
-		hr_parsed.coalesce()
-		if hr_parsed.is_single_range():
-			r = hr_parsed.range_specs[0]
-			return torrent_file.write(r)
+			
+		return torrent_file.write(size, offset)
 			
 	def read(self, path, size, offset):
 		try:
@@ -519,7 +503,7 @@ def main_log(l):
 	log, log_conf = l
 	if log:
 		if log_conf is None:
-			log_conf = "/etc/bittorrent2player/logging.conf" # configuration
+			log_conf = "/etc/btfs/logging.conf" # configuration
 		else:
 			error_exit(229, "both \"--log\" and \"--log-conf\" are given, the logging configuration file name is ambiguous")
 	if not (log_conf is None):
@@ -528,10 +512,8 @@ def main_log(l):
 		logging.disable(logging.CRITICAL)
 
 def main_default(options):
-	if not ("domain-name" in options):
-		options["domain-name"] = "127.0.0.1" # configuration
 	if not ("port" in options):
-		options["port"] = 17580 # configuration
+		options["port"] = 6881 # configuration
 	if not ("piece-par" in options):
 		options["piece-par"] = 2**3 # configuration
 	if not ("hash-file" in options):
@@ -559,26 +541,29 @@ def main_options(options, l, th):
 	main_log(l)
 	main_torrent_descr(options, th)
 
+def expandpath(path):
+	return os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+	
 def main(argv=None):
 	th = term_handler()
 	signal.signal(signal.SIGTERM, th.hdo)
 	if argv is None:
 		argv = sys.argv
 	try:
-		crude_options, args = getopt.getopt(argv[1:], "f:s:"
-			, ["resume=", "piece-par=", "log", "log-conf=", "domain-name=", "port="])
+		crude_options, args = getopt.getopt(argv[1:], "f:s:r:p:r:"
+			, ["resume=", "piece-par=", "log", "log-conf="])
 	except getopt.error, error:
 		error_exit(221, "the option "+error.opt+" is incorrect because "+error.msg)
 	options = {}
 	log = False
 	log_conf = None
 	for o, a in crude_options:
-		if "--resume"==o:
-			options["resume"] = a
+		if "--resume"==o or "-r"==o:
+			options["resume"] = expandpath(a)
 		elif "-f"==o:
-			options["hash-file"] = a
+			options["hash-file"] = expandpath(a)
 		elif "-s"==o:
-			options["save-path"] = a
+			options["save-path"] = expandpath(a)
 		elif "--piece-par"==o:
 			tag, value = coerce_piece_par(a)
 			if 0==tag:
@@ -589,10 +574,8 @@ def main(argv=None):
 			log = True
 		elif "--log-conf"==o:
 			log_conf = a
-		elif "--domain-name"==o:
-			options["domain-name"] = a
-		elif "--port"==o:
-			options["port"] = a
+		elif "-p"==o:
+			options["port"] = int(a)
 		else:
 			error_exit(223, "an unknown option is given")
 	sys.argv[1:] = args
