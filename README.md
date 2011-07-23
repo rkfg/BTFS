@@ -1,6 +1,9 @@
 # What the? #
 It's bittorent file system. It allows you to watch video or pictures, listen to music and so on directly from torrent network. The file you request is put on top of download queue so you shouldn't mess with priorities and such. Just mount this nifty filesystem wherever you like and use any player to get the content. It may get a while to fill the player's cache so be patient. If your connection is fast enough you'll expirience a smooth playback.
 
+# Requirements #
+Python 2.x (I personally use 2.6.7), python-libtorrent from rasterbar ( http://www.rasterbar.com/products/libtorrent/python_binding.html ), python-fuse. Your repo should contain all this and other packages which depend on these.
+
 # A man page? #
 There's no man page yet. I don't know whether it will be at all. For now you can use the following switches:
 
