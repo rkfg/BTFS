@@ -96,8 +96,11 @@ class piece_server(object):
 			#	self.torrent_handle.set_piece_deadline(pa, deadline, 0)
 			#	self.torrent_handle.piece_priority(pa, 1)
 			#	deadline += 1000
+			prio = 7
 			for pa in range(piece, p1):
-				self.torrent_handle.piece_priority(pa, 7)
+				self.torrent_handle.piece_priority(pa, prio)
+				if prio > 1:
+					prio -= 1
 			
 			logger.debug("downloading of the pieces ["+str(piece)+", "+str(p1)+"] is turned on")
 			self.array.append((event, channel, piece))
