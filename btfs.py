@@ -66,7 +66,7 @@ class piece_server(object):
 		self.lock = threading.Lock()
 		self.array = []
 	def init(self):
-		self.torrent_handle.prioritize_pieces(self.torrent_info.num_pieces() * [1])
+		self.torrent_handle.prioritize_pieces(self.torrent_info.num_pieces() * [self.defprio])
 	def push(self, read_piece_alert):
 		self.lock.acquire()
 		try:
@@ -310,11 +310,11 @@ class BTFS(fuse.Fuse):
 			if "hash-file" in self.options:
 				e = libtorrent.bdecode(io.open(self.options["hash-file"], 'rb').read())
 				self.torrent_info = libtorrent.torrent_info(e)
-				torrent_descr["ti"] = torrent_info
+				torrent_descr["ti"] = self.torrent_info
 				if not (resume_data is None):
 					torrent_descr["resume_data"] = resume_data
 				self.logger.debug("the torrent description: "+str(torrent_descr))
-				self.torrent_handle = torrent_session.add_torrent(torrent_descr)
+				self.torrent_handle = self.torrent_session.add_torrent(torrent_descr)
 				self.logger.debug("the torrent handle "+str(self.torrent_handle)+" is created")
 			
 			if "magnet" in self.options:
@@ -339,6 +339,7 @@ class BTFS(fuse.Fuse):
 		piece_server0.torrent_handle = self.torrent_handle
 		piece_server0.torrent_info = self.torrent_info
 		piece_server0.piece_par = piece_par_ref0
+		piece_server0.defprio = self.options["defprio"]
 		piece_server0.init()
 
 		alert_client0 = alert_client()
@@ -366,8 +367,6 @@ class BTFS(fuse.Fuse):
 		r.torrent_info = self.torrent_info
 		r.piece_server = piece_server0
 		r.init()
-		self.torrent_handle = self.torrent_handle
-		self.torrent_info = self.torrent_info
 		self.torrent = r
 		self.piece_server = piece_server0
 		self.parsebttree()
@@ -518,6 +517,9 @@ class BTFS(fuse.Fuse):
 			
 	def read(self, path, size, offset):
 		try:
+			if not self.torrent_info:
+				return
+			
 			torrent_file = self.torrent.find_file(path[1:])
 			if not torrent_file:
 				self.logger.debug("Read404_1: " + path[1:])
@@ -572,8 +574,10 @@ def main_default(options):
 		options["piece-par"] = 2**3 # configuration
 	if not ("hash-file" in options) and not ("magnet" in options):
 		error_exit(225,  "\"-f\" or \"-m\" is mandatory")
-	elif not ("save-path" in options):
+	if not ("save-path" in options):
 		error_exit(226, "\"-s\" is mandatory")
+	if not ("defprio" in options):
+		options["defprio"] = 1
 
 def main_torrent_descr(options, th):
 	logger = logging.getLogger("root")
@@ -605,7 +609,7 @@ def main(argv=None):
 	if argv is None:
 		argv = sys.argv
 	try:
-		crude_options, args = getopt.getopt(argv[1:], "f:s:r:p:r:m:"
+		crude_options, args = getopt.getopt(argv[1:], "f:s:r:p:m:d:"
 			, ["resume=", "piece-par=", "log", "log-conf="])
 	except getopt.error, error:
 		error_exit(221, "the option "+error.opt+" is incorrect because "+error.msg)
@@ -621,6 +625,8 @@ def main(argv=None):
 			options["magnet"] = a
 		elif "-s"==o:
 			options["save-path"] = expandpath(a)
+		elif "-d"==o and (a == "0" or a == "1"):
+			options["defprio"] = int(a)
 		elif "--piece-par"==o:
 			tag, value = coerce_piece_par(a)
 			if 0==tag:
@@ -642,4 +648,7 @@ def main(argv=None):
 	main_options(options, (log, log_conf), th)
 
 if __name__ == "__main__":
-	main()
+	try:
+		main()
+	except fuse.FuseError:
+		pass

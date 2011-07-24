@@ -12,6 +12,8 @@ There's no man page yet. I don't know whether it will be at all. For now you can
     -s save/to/dir — path to download dir (required)
     -p port — tcp (for torrent) and udp (for DHT) port to listen to
     -r path/to/resume.dat — use the resume file for faster incomplete download resuming
+    -d 0/1 — default chunk priority. 0 means nothing would be downloaded except files you try to read,
+    1 (default) means the download would be like normal but requested files will have the highest priority.
     --piece-par N — download N pieces in parallel
     --log — enable logging (provide a python logging configuration on /etc/btfs/logging.conf )
     --log-conf path/to/conf — use another logging configuration file
