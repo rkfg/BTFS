@@ -7,7 +7,8 @@ Python 2.x (I personally use 2.6.7), python-libtorrent from rasterbar ( http://w
 # A man page? #
 There's no man page yet. I don't know whether it will be at all. For now you can use the following switches:
 
-    -f torrent — path to the torrent file (required)
+    -f torrent — path to the torrent file (this or -m is required)
+    -m magnet-uri — magnet link of the torrent (this or -f is required)
     -s save/to/dir — path to download dir (required)
     -p port — tcp (for torrent) and udp (for DHT) port to listen to
     -r path/to/resume.dat — use the resume file for faster incomplete download resuming
@@ -18,6 +19,7 @@ There's no man page yet. I don't know whether it will be at all. For now you can
 And after all switches put the path to the mount point. For example:
 
     ./btfs.py -f ~/mytorrent.torrent -s ~/downloads ~/btfs
+    ./btfs.py -m "magnet:?xt=urn:btih:c1742f05c068350bf2831e653656015199e12803" -s ~/downloads ~/btfs
 
 Then just go to ~/btfs and look for files. The topmost directory will have the torrent name (I believe some day I'll add multiple torrents support so it's a good reason to separate them in advance). You can unmount it just like any other FUSE filesystem using `fusermount -u ~/btfs`.
 
