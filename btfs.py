@@ -370,6 +370,7 @@ class BTFS(fuse.Fuse):
 		self.torrent = r
 		self.piece_server = piece_server0
 		self.parsebttree()
+		self.torrent_handle.force_recheck()
 	       except SystemExit:
 		       raise
                except:
